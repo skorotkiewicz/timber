@@ -87,7 +87,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "tree-rs"
+name = "timber-cli"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "timber-core",
+]
+
+[[package]]
+name = "timber-core"
 version = "0.1.0"
 dependencies = [
  "serde",

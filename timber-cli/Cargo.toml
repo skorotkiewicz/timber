@@ -1,0 +1,13 @@
+[package]
+name = "timber-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "timber"
+path = "src/main.rs"
+
+[dependencies]
+timber-core = { path = "../timber-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
