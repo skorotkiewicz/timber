@@ -60,11 +60,10 @@ jobs:
         if: matrix.os != 'windows-latest'
         run: |
           mkdir -p dist
-          cp target/${{ matrix.target }}/release/llm-gateway dist/
+          cp target/${{ matrix.target }}/release/timber dist/
           cp README.md dist/
-          cp config.toml.example dist/config.toml
           cd dist
-          tar czf ../llm-gateway-${{ matrix.target }}.${{ matrix.archive }} .
+          tar czf ../timber-${{ matrix.target }}.${{ matrix.archive }} .
           cd ..
         shell: bash
 
@@ -72,16 +71,15 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           New-Item -ItemType Directory -Force -Path dist
-          Copy-Item target/${{ matrix.target }}/release/llm-gateway.exe dist/
+          Copy-Item target/${{ matrix.target }}/release/timber.exe dist/
           Copy-Item README.md dist/
-          Copy-Item config.toml.example dist/config.toml
-          Compress-Archive -Path dist/* -DestinationPath llm-gateway-${{ matrix.target }}.zip
+          Compress-Archive -Path dist/* -DestinationPath timber-${{ matrix.target }}.zip
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: llm-gateway-${{ matrix.target }}
-          path: llm-gateway-${{ matrix.target }}.*
+          name: timber-${{ matrix.target }}
+          path: timber-${{ matrix.target }}.*
           retention-days: 5
 
   # Run tests on Linux
@@ -99,7 +97,7 @@ jobs:
   release:
     name: Release
     needs: [build, test]
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -109,7 +107,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          pattern: llm-gateway-*
+          pattern: timber-*
           merge-multiple: false
 
       - name: Create Release
