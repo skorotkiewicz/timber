@@ -90,6 +90,41 @@ fn decode_tree(node: &TreeNode, base_path: &Path) -> io::Result<()> {
     Ok(())
 }
 
+/// Strips tree-drawing prefixes from a line and returns (indent_depth, name).
+/// Each indent level is 4 display-char wide: "│   ", "├── ", "└── ", or "    ".
+fn strip_tree_prefix(line: &str) -> (usize, String) {
+    let mut indent = 0;
+    let mut pos = 0;
+
+    while pos < line.len() {
+        let remaining: Vec<char> = line[pos..].chars().collect();
+        if remaining.len() < 4 {
+            break;
+        }
+
+        let prefix: String = remaining[..4].iter().collect();
+
+        if prefix.starts_with("│   ")
+            || prefix.starts_with("├── ")
+            || prefix.starts_with("└── ")
+        {
+            indent += 1;
+            // Advance past the 4-char prefix by byte count
+            let byte_advance: usize = remaining[..4].iter().map(|c| c.len_utf8()).sum();
+            pos += byte_advance;
+        } else if prefix == "    " {
+            indent += 1;
+            pos += 4;
+        } else {
+            break;
+        }
+    }
+
+    let name = line[pos..].trim_end().to_string();
+    let name = name.trim_end_matches('/').to_string();
+    (indent, name)
+}
+
 fn parse_tree_text(input: &str) -> TreeNode {
     #[derive(Debug)]
     struct StackEntry {
@@ -111,26 +146,21 @@ fn parse_tree_text(input: &str) -> TreeNode {
             continue;
         }
 
-        let indent = line.len() - line.trim_start().len();
+        let (indent, name) = strip_tree_prefix(line);
 
-        // Clean tree-drawing characters
-        let raw = line.trim_start();
-        let clean = raw
-            .replace("│   ", "")
-            .replace("├── ", "")
-            .replace("└── ", "")
-            .trim()
-            .to_string();
-
-        if clean.is_empty() {
+        if name.is_empty() {
             continue;
         }
 
-        let is_dir = !clean.contains('.') || clean.ends_with('/');
-        let name = clean.trim_end_matches('/').to_string();
+        let is_dir = name == "." || (!name.contains('.') || name.ends_with('.'));
+        let name = if name == "." {
+            ".".to_string()
+        } else {
+            name.trim_end_matches('/').to_string()
+        };
 
         let node = TreeNode {
-            name,
+            name: name.clone(),
             node_type: if is_dir {
                 NodeType::Dir
             } else {
