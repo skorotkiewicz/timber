@@ -30,6 +30,14 @@ timber encode /your/path --exclude .git --exclude target --exclude node_modules 
 timber encode /your/path -e .git -e target -e Cargo.lock > tree.json
 ```
 
+Omit file contents (structure only):
+
+```sh
+timber encode /your/path --no-content > tree.json
+# Or use short flag:
+timber encode /your/path -n > tree.json
+```
+
 **Decode** JSON back to files:
 
 ```sh
@@ -53,5 +61,5 @@ timber decode tree.json ./output
 ## Format
 
 - `type` — `"dir"` or `"file"`
-- `content` — present only for files, holds file contents
+- `content` — present only for files, holds file contents (omitted when using `--no-content` / `-n`)
 - `children` — present only for directories

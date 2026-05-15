@@ -62,6 +62,7 @@ pub fn encode_dir(
     path: &Path,
     depth_limit: Option<usize>,
     exclude: &[String],
+    no_content: bool,
 ) -> io::Result<TreeNode> {
     let name = path
         .file_name()
@@ -91,7 +92,7 @@ pub fn encode_dir(
             let is_dir = entry_path.is_dir();
 
             if is_dir && can_descend {
-                children.push(encode_dir(&entry_path, next_depth, exclude)?);
+                children.push(encode_dir(&entry_path, next_depth, exclude, no_content)?);
             } else if is_dir {
                 children.push(TreeNode {
                     name: entry_name,
@@ -100,7 +101,11 @@ pub fn encode_dir(
                     children: None,
                 });
             } else {
-                let content = fs::read_to_string(&entry_path).ok();
+                let content = if no_content {
+                    None
+                } else {
+                    fs::read_to_string(&entry_path).ok()
+                };
                 children.push(TreeNode {
                     name: entry_name,
                     node_type: NodeType::File,
@@ -117,7 +122,11 @@ pub fn encode_dir(
             children: Some(children),
         })
     } else {
-        let content = fs::read_to_string(path).ok();
+        let content = if no_content {
+            None
+        } else {
+            fs::read_to_string(path).ok()
+        };
         Ok(TreeNode {
             name,
             node_type: NodeType::File,

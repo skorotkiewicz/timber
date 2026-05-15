@@ -7,10 +7,11 @@ use timber_core::{
     decode_tree, encode_dir, parse_tree_text, try_parse_timber_json, try_parse_tree_j,
 };
 
-fn parse_encode_args(args: &[String]) -> (Option<usize>, &str, Vec<String>) {
+fn parse_encode_args(args: &[String]) -> (Option<usize>, &str, Vec<String>, bool) {
     let mut depth_limit = None;
     let mut path = ".";
     let mut exclude = Vec::new();
+    let mut no_content = false;
     let mut i = 0;
     while i < args.len() {
         if args[i] == "--depth" || args[i] == "-d" {
@@ -30,16 +31,19 @@ fn parse_encode_args(args: &[String]) -> (Option<usize>, &str, Vec<String>) {
             } else {
                 i += 1;
             }
+        } else if args[i] == "--no-content" || args[i] == "-n" {
+            no_content = true;
+            i += 1;
         } else {
             path = &args[i];
             i += 1;
         }
     }
-    (depth_limit, path, exclude)
+    (depth_limit, path, exclude, no_content)
 }
 
 fn cmd_encode(args: &[String]) -> io::Result<()> {
-    let (depth_limit, path, exclude) = parse_encode_args(args);
+    let (depth_limit, path, exclude, no_content) = parse_encode_args(args);
     let path = Path::new(path);
 
     if !path.exists() {
@@ -47,7 +51,7 @@ fn cmd_encode(args: &[String]) -> io::Result<()> {
         std::process::exit(1);
     }
 
-    let node = encode_dir(path, depth_limit, &exclude)?;
+    let node = encode_dir(path, depth_limit, &exclude, no_content)?;
     let json = serde_json::to_string_pretty(&node)?;
     println!("{json}");
 
@@ -92,7 +96,7 @@ fn main() {
     if args.len() < 2 {
         eprintln!("Usage:");
         eprintln!(
-            "  timber encode [path] [--depth N] [--exclude PATTERN]   Encode directory tree to JSON"
+            "  timber encode [path] [--depth N] [--exclude PATTERN] [--no-content]   Encode directory tree to JSON"
         );
         eprintln!(
             "    --depth N / -d N          Stop after N subdirectory levels (default: unlimited)"
@@ -100,6 +104,7 @@ fn main() {
         eprintln!(
             "    --exclude PATTERN / -e    Exclude files/directories matching PATTERN (can use multiple times)"
         );
+        eprintln!("    --no-content / -n         Exclude file contents from the output");
         eprintln!(
             "  timber decode <file> [outdir]                         Decode JSON/tree-text to directory"
         );
