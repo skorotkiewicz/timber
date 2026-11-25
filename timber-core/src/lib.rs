@@ -170,8 +170,32 @@ pub fn parse_tree_text(input: &str) -> TreeNode {
         node: TreeNode,
     }
 
+    let mut root_name = ".".to_string();
+    let mut saw_root = false;
+    let mut entries: Vec<(usize, String)> = Vec::new();
+
+    for line in input.lines() {
+        if line.trim().is_empty() {
+            continue;
+        }
+        let Some((indent, name)) = strip_tree_prefix(line) else {
+            continue;
+        };
+        if indent > 0 {
+            entries.push((indent, name));
+        } else if !saw_root && !is_summary_line(line.trim()) {
+            // First line of a tree dump is the root directory name.
+            root_name = name.trim_end_matches('/').to_string();
+            saw_root = true;
+        }
+    }
+
+    // A trailing '/' on any entry means the dump came from `tree -F`,
+    // which marks directories explicitly. Otherwise use the dot heuristic.
+    let f_mode = entries.iter().any(|(_, n)| n.ends_with('/'));
+
     let mut root = TreeNode {
-        name: ".".to_string(),
+        name: root_name,
         node_type: NodeType::Dir,
         content: None,
         children: Some(Vec::new()),
@@ -179,17 +203,28 @@ pub fn parse_tree_text(input: &str) -> TreeNode {
 
     let mut stack: Vec<StackEntry> = Vec::new();
 
-    for line in input.lines() {
-        let (indent, name) = match strip_tree_prefix(line) {
-            Some(pair) => pair,
-            None => continue,
-        };
+    for i in 0..entries.len() {
+        let (indent, raw) = &entries[i];
+        let has_children = entries
+            .get(i + 1)
+            .is_some_and(|(next_indent, _)| next_indent > indent);
 
-        let is_dir = name == "." || !name.contains('.');
-        let name = name.trim_end_matches('/').to_string();
+        // Symlinks are printed as "name -> target".
+        let name = raw.split(" -> ").next().unwrap_or(raw.as_str());
+        let trailing_slash = name.ends_with('/');
+        let mut name = name.trim_end_matches('/').to_string();
+        if f_mode
+            && !trailing_slash
+            && let Some(stripped) = name.strip_suffix(['*', '=', '@', '|', '>'])
+        {
+            name = stripped.to_string();
+        }
+
+        let is_dir =
+            has_children || trailing_slash || (!f_mode && (name == "." || !name.contains('.')));
 
         let node = TreeNode {
-            name: name.clone(),
+            name,
             node_type: if is_dir {
                 NodeType::Dir
             } else {
@@ -199,7 +234,7 @@ pub fn parse_tree_text(input: &str) -> TreeNode {
             children: if is_dir { Some(Vec::new()) } else { None },
         };
 
-        while stack.last().is_some_and(|e| e.indent >= indent) {
+        while stack.last().is_some_and(|e| e.indent >= *indent) {
             if let Some(popped) = stack.pop() {
                 if let Some(parent) = stack.last_mut() {
                     parent
@@ -212,8 +247,10 @@ pub fn parse_tree_text(input: &str) -> TreeNode {
                 }
             }
         }
-
-        stack.push(StackEntry { indent, node });
+        stack.push(StackEntry {
+            indent: *indent,
+            node,
+        });
     }
 
     while let Some(entry) = stack.pop() {
@@ -231,71 +268,38 @@ pub fn parse_tree_text(input: &str) -> TreeNode {
     root
 }
 
+fn is_summary_line(line: &str) -> bool {
+    line.split_whitespace()
+        .next()
+        .is_some_and(|t| t.parse::<usize>().is_ok())
+        && line.contains("director")
+}
+
 fn strip_tree_prefix(line: &str) -> Option<(usize, String)> {
-    if !line.contains('│') && !line.contains('├') && !line.contains('└') {
-        let trimmed = line.trim();
-        if trimmed == "." {
-            return Some((0, ".".to_string()));
+    // tree draws vertical continuations as '│' + two U+00A0 (NBSP) + one space.
+    // Normalize NBSP to plain spaces so prefix matching works at any depth.
+    let normalized: String = line
+        .chars()
+        .map(|c| if c == '\u{a0}' { ' ' } else { c })
+        .collect();
+
+    // UTF-8 groups first, then the ASCII charset (LANG=C tree) equivalents.
+    const GROUPS: [&str; 7] = ["│   ", "├── ", "└── ", "    ", "|   ", "|-- ", "`-- "];
+
+    let mut indent = 0usize;
+    let mut rest = normalized.as_str();
+    'outer: loop {
+        for group in GROUPS {
+            if let Some(r) = rest.strip_prefix(group) {
+                indent += 1;
+                rest = r;
+                continue 'outer;
+            }
         }
-        return None;
+        break;
     }
 
-    let mut indent = 0;
-    let mut chars = line.char_indices().peekable();
-
-    while let Some(&(_, ch)) = chars.peek() {
-        match ch {
-            '│' => {
-                let rest: String = chars.clone().map(|(_, c)| c).take(4).collect();
-                if rest.starts_with("│   ") {
-                    indent += 1;
-                    for _ in 0..4 {
-                        chars.next();
-                    }
-                } else {
-                    break;
-                }
-            }
-            '├' => {
-                let rest: String = chars.clone().map(|(_, c)| c).take(4).collect();
-                if rest.starts_with("├── ") {
-                    indent += 1;
-                    for _ in 0..4 {
-                        chars.next();
-                    }
-                } else {
-                    break;
-                }
-            }
-            '└' => {
-                let rest: String = chars.clone().map(|(_, c)| c).take(4).collect();
-                if rest.starts_with("└── ") {
-                    indent += 1;
-                    for _ in 0..4 {
-                        chars.next();
-                    }
-                } else {
-                    break;
-                }
-            }
-            ' ' => {
-                let rest: String = chars.clone().map(|(_, c)| c).take(4).collect();
-                if rest == "    " {
-                    indent += 1;
-                    for _ in 0..4 {
-                        chars.next();
-                    }
-                } else {
-                    break;
-                }
-            }
-            _ => break,
-        }
-    }
-
-    let remaining: String = chars.map(|(_, c)| c).collect();
-    let name = remaining.trim_end().trim_end_matches('/').to_string();
-
+    let name = rest.trim_end().to_string();
     if name.is_empty() {
         None
     } else {
