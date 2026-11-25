@@ -4,7 +4,17 @@ Decode `tree` text output back to files - recreate directory structures from `tr
 
 Also encodes directories to JSON (with optional file contents).
 
-## Build
+## Install
+
+Arch Linux (AUR):
+
+```sh
+paru -S timber
+# or
+# yay -S timber
+```
+
+Or build from source:
 
 ```sh
 cargo build --release
