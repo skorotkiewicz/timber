@@ -59,7 +59,7 @@ timber decode tree.json ./output
 **Decode** from a plain `tree` text dump:
 
 ```sh
-tree /path/to/project > tree.txt
+tree -F /path/to/project > tree.txt
 timber decode tree.txt ./output
 ```
 
