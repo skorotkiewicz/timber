@@ -36,7 +36,7 @@ add-tag:
     #!/usr/bin/env bash
     set -euo pipefail
     VERSION=$(grep '^version' Cargo.toml | head -1 | cut -d'"' -f2)
-    git push origin main
+    git push origin dev
     git tag -a "v${VERSION}" -m "Release v${VERSION}"
     git push origin "v${VERSION}"
 
