@@ -1,6 +1,8 @@
 # timber
 
-Encode and decode directory trees as JSON.
+Decode `tree` text output back to files - recreate directory structures from `tree` dumps.
+
+Also encodes directories to JSON (with optional file contents).
 
 ## Build
 
@@ -60,6 +62,6 @@ timber decode tree.json ./output
 
 ## Format
 
-- `type` — `"dir"` or `"file"`
-- `content` — present only for files, holds file contents (omitted when using `--no-content` / `-n`)
-- `children` — present only for directories
+- `type` - `"dir"` or `"file"`
+- `content` - present only for files, holds file contents (omitted when using `--no-content` / `-n`)
+- `children` - present only for directories
